@@ -32,6 +32,10 @@
  <th>Dernière</th><th>Messages</th><th>Caractères</th><th>% MAJ</th></tr></thead>
  <tbody></tbody>
 </table>
+<h3>Vues d'ensemble</h3>
+<div id="pareto" style="height:300px"></div>
+<div id="demo" style="height:300px"></div>
+<div id="regimes" style="height:340px"></div>
 <footer>
 <p><strong>Lecture.</strong> lag &lt; 0 : le verbe <em>suit</em> le cours ·
 lag &gt; 0 : il le précède · corrélation n'est pas causalité — c'est
@@ -93,8 +97,37 @@ function drawTable(){
    <td>${s.n}</td><td>${s.p}</td><td>${s.d}</td>
    <td>${fmt(s.m)}</td><td>${fmt(s.c)}</td><td>${s.t.toFixed(1)}</td></tr>`).join('');
 }
+function drawDistributions(){
+ // 1. Pareto : part cumulée des caractères par rang
+ const tot=DATA.stats.reduce((a,s)=>a+s.c,0); let cum=0;
+ const partCum=DATA.stats.map(s=>(cum+=s.c)/tot*100);
+ Plotly.newPlot('pareto',[{y:partCum,mode:'lines',fill:'tozeroy'}],
+  {title:'Concentration de la parole (part cumulée des caractères par rang)',
+   xaxis:{title:'Rang du contributeur'},yaxis:{title:'% cumulé',range:[0,100]},
+   margin:{t:40}},{responsive:true});
+ // 2. Démographie : 1res publications relevées par mois
+ const mois={}; DATA.stats.forEach(s=>{const m=s.p.slice(0,7);mois[m]=(mois[m]||0)+1});
+ const mk=Object.keys(mois).sort();
+ Plotly.newPlot('demo',[{x:mk,y:mk.map(m=>mois[m]),type:'bar'}],
+  {title:'Arrivées par mois (1re publication relevée — biais de collecte inclus)',
+   shapes:[{type:'line',x0:'2026-06',x1:'2026-06',yref:'paper',y0:0,y1:1,
+    line:{dash:'dot',color:'#999'}}],
+   annotations:[{x:'2026-06',yref:'paper',y:1,text:'Grizzly',showarrow:false,
+    font:{size:9,color:'#999'}}],margin:{t:40}},{responsive:true});
+ // 3. Régimes : messages vs caractères (log-log), en clair colorés
+ const anon=DATA.stats.filter(s=>s.n.startsWith('Contributeur'));
+ const clair=DATA.stats.filter(s=>!s.n.startsWith('Contributeur'));
+ Plotly.newPlot('regimes',[
+  {x:anon.map(s=>s.m),y:anon.map(s=>s.c),mode:'markers',name:'Pseudonymisés',
+   text:anon.map(s=>s.n),marker:{opacity:.5}},
+  {x:clair.map(s=>s.m),y:clair.map(s=>s.c),mode:'markers+text',name:'En clair',
+   text:clair.map(s=>s.n),textposition:'top center',textfont:{size:9}}],
+  {title:'Régimes d\'écriture — au-dessus de la diagonale : les pavés ; en dessous : la conversation',
+   xaxis:{title:'Messages',type:'log'},yaxis:{title:'Caractères',type:'log'},
+   margin:{t:40}},{responsive:true});
+}
 sel.onchange=draw;
 document.getElementById('lag').oninput=draw;
 document.getElementById('topn').onchange=drawTable;
-sel.value=DATA.stats[0].n; draw(); drawTable();
+sel.value=DATA.stats[0].n; draw(); drawTable(); drawDistributions();
 </script></body></html>
